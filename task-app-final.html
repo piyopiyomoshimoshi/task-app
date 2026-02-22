@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="タスク">
+<meta name="theme-color" content="#f8f6f1">
+<title>タスク管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  height: 100%; font-family: 'Noto Sans JP', -apple-system, sans-serif;
+  background: #e8e4dc; overflow: hidden; -webkit-font-smoothing: antialiased;
+}
+button { border: none; outline: none; cursor: pointer; font-family: inherit; background: none; }
+input, textarea, select { font-family: inherit; outline: none; border: none; }
+:root {
+  --bg: #f8f6f1; --card: #ffffff; --card-border: #e8e4dc;
+  --done-bg: #2d2d2d; --accent: #5a8a5a; --orange: #e83b00; --blue: #0072b2;
+  --text: #1a1a1a; --sub: #888; --header-bg: #ede9e0; --footer-bg: #f0ece3;
+  --icon-a: #c0392b; --icon-y: #d4890a; --icon-s: #27ae60;
+  --modal-bg: #3a3a3a; --modal-card: #4a4a4a;
+  --safe-top: env(safe-area-inset-top, 44px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+#app {
+  height: 100dvh; max-width: 430px; margin: 0 auto;
+  display: flex; flex-direction: column;
+  background: var(--bg); position: relative; overflow: hidden;
+  box-shadow: 0 0 40px rgba(0,0,0,0.2);
+}
+.status-bar {
+  padding-top: var(--safe-top); height: calc(var(--safe-top) + 6px);
+  background: var(--bg); flex-shrink: 0;
+}
+.header-pill {
+  background: var(--header-bg); margin: 8px 16px 0; border-radius: 24px;
+  padding: 11px 20px; text-align: center; font-size: 16px; font-weight: 500;
+  color: var(--text); letter-spacing: 0.07em; flex-shrink: 0;
+}
+.scroll-area {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 16px;
+}
+.scroll-area::-webkit-scrollbar { display: none; }
+
+/* SUMMARY */
+.top-summary { padding: 10px 16px 8px; border-bottom: 1px dashed var(--card-border); flex-shrink: 0; }
+.summary-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 13px; color: var(--text); }
+
+/* TASK ROW */
+.task-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); border: 1px solid var(--card-border);
+  border-radius: 12px; margin-bottom: 8px; padding: 13px 14px;
+  transition: background 0.25s, opacity 0.1s, transform 0.1s;
+  user-select: none; -webkit-user-select: none; cursor: pointer;
+}
+.task-row.done { background: var(--done-bg); border-color: transparent; }
+.task-row.pressing { opacity: 0.7; transform: scale(0.97); }
+.task-body { flex: 1; min-width: 0; }
+.task-title-row { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+.task-time { font-size: 12px; font-weight: 600; color: var(--sub); flex-shrink: 0; }
+.task-title { font-size: 15px; font-weight: 500; color: var(--text); line-height: 1.4; }
+.task-row.done .task-time, .task-row.done .task-title { color: #777; text-decoration: line-through; }
+.task-tag { font-size: 11px; color: var(--sub); margin-top: 2px; }
+.task-row.done .task-tag { color: #555; }
+.task-num { font-size: 13px; color: var(--sub); font-weight: 500; flex-shrink: 0; min-width: 18px; text-align: right; }
+.task-row.done .task-num { color: #aaa; }
+
+/* ICON BADGE */
+.icon-badge {
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+
+/* GCAL badge */
+.gcal-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  margin-left: 2px;
+}
+
+/* FOOTER */
+.footer {
+  background: var(--footer-bg); padding: 12px 20px;
+  padding-bottom: calc(14px + var(--safe-bottom));
+  display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid var(--card-border); flex-shrink: 0;
+}
+.cal-icon-btn {
+  width: 46px; height: 46px; border-radius: 10px;
+  border: 2px solid var(--orange); overflow: hidden; background: #fff;
+  display: flex; flex-direction: column; align-items: center; cursor: pointer;
+}
+.cal-top { width: 100%; height: 14px; background: var(--orange); display: flex; align-items: center; justify-content: center; }
+.cal-top span { font-size: 7px; color: #fff; font-weight: 700; }
+.cal-num { font-size: 17px; font-weight: 700; color: var(--text); line-height: 1; padding-top: 3px; }
+.nav-group { display: flex; gap: 10px; align-items: center; }
+.nav-arr { width: 36px; height: 36px; border-radius: 50%; background: #2d2d2d; color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+.today-btn { background: var(--accent); color: #fff; border-radius: 22px; padding: 10px 22px; font-size: 15px; font-weight: 500; }
+.month-btn { background: #2d2d2d; color: #fff; border-radius: 22px; padding: 10px 22px; font-size: 15px; font-weight: 500; }
+.plus-btn { width: 46px; height: 46px; border-radius: 12px; background: var(--blue); color: #fff; font-size: 26px; display: flex; align-items: center; justify-content: center; }
+
+/* MONTHLY */
+.dow-header { display: flex; padding: 8px 16px 2px; flex-shrink: 0; }
+.dow-cell { flex: 1; text-align: center; font-size: 12px; font-weight: 500; color: var(--sub); }
+.month-grid { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 16px; }
+.month-grid::-webkit-scrollbar { display: none; }
+.month-week { display: flex; border-bottom: 1px dashed var(--card-border); }
+.month-day {
+  flex: 1; min-height: 68px; padding: 6px 3px 4px;
+  cursor: pointer; transition: background 0.15s;
+  border-right: 1px solid transparent;
+}
+.month-day:active { background: #e8e4d8; }
+.month-day.selected { background: #e4e0d4; border-radius: 4px; }
+.month-day.today-marker .mday-num { background: var(--accent); color: #fff; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1px; font-size: 12px; }
+.mday-num { font-size: 13px; font-weight: 500; text-align: center; margin-bottom: 2px; }
+.mday-tasks { font-size: 9.5px; color: var(--sub); line-height: 1.45; }
+.mday-task-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* MODAL */
+.modal-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.55);
+  display: flex; align-items: flex-end; z-index: 200;
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-sheet {
+  width: 100%; background: var(--modal-bg); border-radius: 24px 24px 0 0;
+  padding: 20px 20px;
+  padding-bottom: calc(28px + var(--safe-bottom));
+  max-height: 88dvh; overflow-y: auto;
+  animation: slideUp 0.3s cubic-bezier(0.34,1.1,0.64,1);
+}
+.modal-sheet::-webkit-scrollbar { display: none; }
+@keyframes slideUp { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modal-close-row { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+.modal-close { color: #ccc; font-size: 26px; line-height: 1; padding: 0 4px; }
+.modal-input {
+  width: 100%; background: #fff; border-radius: 10px;
+  padding: 13px 14px; font-size: 15px; color: var(--text); margin-bottom: 16px;
+}
+.modal-section { background: var(--modal-card); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+.modal-section-title { font-size: 13px; color: #bbb; margin-bottom: 10px; }
+.tag-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-btn {
+  background: #555; color: #ccc; border: 1px solid #666;
+  border-radius: 20px; padding: 8px 16px; font-size: 13px;
+  transition: all 0.15s;
+}
+.tag-btn.active { background: #fff; color: var(--text); border-color: #fff; font-weight: 700; }
+.time-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.time-label { font-size: 13px; color: #bbb; }
+.time-fields { display: flex; gap: 8px; }
+.time-pill {
+  background: #555; border-radius: 8px; padding: 7px 12px;
+  font-size: 13px; color: #fff; text-align: center;
+}
+.time-pill input { background: none; color: #fff; font-size: 13px; width: 100%; text-align: center; }
+.modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+.btn-delete { flex: 1; background: #8b2e2e; color: #fff; border-radius: 12px; padding: 15px; font-size: 15px; font-weight: 500; }
+.btn-save { flex: 2; background: var(--accent); color: #fff; border-radius: 12px; padding: 15px; font-size: 15px; font-weight: 500; }
+.btn-primary { flex: 1; background: var(--accent); color: #fff; border-radius: 12px; padding: 15px; font-size: 15px; font-weight: 500; }
+
+/* GCAL PANEL */
+.gcal-section { background: var(--modal-card); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+.gcal-row { display: flex; align-items: center; justify-content: space-between; }
+.gcal-status { font-size: 12px; color: #aaa; margin-top: 4px; }
+.gcal-btn { background: #4285f4; color: #fff; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 500; }
+.gcal-btn.connected { background: var(--accent); }
+.gcal-btn.sync { background: #555; }
+
+/* SYNC TOAST */
+.toast {
+  position: absolute; top: calc(var(--safe-top) + 60px); left: 50%; transform: translateX(-50%);
+  background: #2d2d2d; color: #fff; border-radius: 20px; padding: 10px 20px;
+  font-size: 13px; z-index: 300; white-space: nowrap;
+  animation: toastIn 0.3s ease, toastOut 0.3s ease 2.2s forwards;
+  pointer-events: none;
+}
+@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+@keyframes toastOut { to { opacity: 0; } }
+
+/* LOADING */
+.loading-row { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 20px; color: var(--sub); font-size: 14px; }
+.spinner { width: 18px; height: 18px; border: 2px solid var(--card-border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* EMPTY */
+.empty-day { text-align: center; padding: 40px 20px; color: var(--sub); font-size: 14px; line-height: 2.2; }
+
+/* GCAL EVENT indicator */
+.gcal-indicator { font-size: 9px; color: #4285f4; margin-left: 4px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  ★ ここにGoogle Cloud ConsoleのクライアントIDを貼る ★
+// ══════════════════════════════════════════════════════════
+const GOOGLE_CLIENT_ID = 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com';
+// ══════════════════════════════════════════════════════════
+
+const SCOPES = [
+  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/tasks'
+].join(' ');
+
+// ── カラー設定 ──────────────────────────────────────────
+const ICON_COLORS = { A: '#c0392b', Y: '#d4890a', S: '#27ae60', G: '#4285f4' };
+const TAGS = ['提出／締切','振込み','要返答','作業','訪問','準備','つきあい','移動'];
+const MONTHS_JA = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+// ── State ──────────────────────────────────────────────
+let state = {
+  view: 'day',           // 'day' | 'monthly' | 'settings'
+  today: new Date(),
+  current: new Date(),
+  tasks: {},             // { 'YYYY-MM-DD': [...] }
+  modal: null,           // null | 'add' | taskObject
+  settingsModal: false,
+  gcalToken: null,
+  gcalEmail: null,
+  syncing: false,
+  toast: null,
+  lastSynced: null,
+};
+
+// ── LocalStorage ───────────────────────────────────────
+function saveLocal() {
+  try {
+    localStorage.setItem('tasks_v2', JSON.stringify(state.tasks));
+    if (state.gcalToken) localStorage.setItem('gcal_token', state.gcalToken);
+    if (state.gcalEmail) localStorage.setItem('gcal_email', state.gcalEmail);
+  } catch(e) {}
+}
+function loadLocal() {
+  try {
+    const t = localStorage.getItem('tasks_v2');
+    if (t) state.tasks = JSON.parse(t);
+    state.gcalToken = localStorage.getItem('gcal_token');
+    state.gcalEmail = localStorage.getItem('gcal_email');
+  } catch(e) {}
+}
+
+// ── Date Utils ─────────────────────────────────────────
+function dateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function parseKey(k) {
+  const [y,m,d] = k.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+function dayLabel(d) {
+  return ['日','月','火','水','木','金','土'][d.getDay()];
+}
+function dayColor(d) {
+  const dow = d.getDay();
+  return dow===0 ? '#e83b00' : dow===6 ? '#0072b2' : '#1a1a1a';
+}
+function isToday(d) { return dateKey(d) === dateKey(state.today); }
+function addDays(d, n) { const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+
+// ── Render ─────────────────────────────────────────────
+function render() {
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+
+  // Status bar spacer
+  const sb = document.createElement('div');
+  sb.className = 'status-bar';
+  app.appendChild(sb);
+
+  if (state.view === 'day') renderDay(app);
+  else if (state.view === 'monthly') renderMonthly(app);
+
+  if (state.modal) renderModal(app);
+  if (state.settingsModal) renderSettings(app);
+  if (state.toast) renderToast(app);
+}
+
+// ── DAY VIEW ───────────────────────────────────────────
+function renderDay(app) {
+  const d = state.current;
+  const key = dateKey(d);
+  const tasks = (state.tasks[key] || []).slice().sort((a,b) => {
+    const ta = a.time || (a.timeLabel === '朝' ? '00' : a.timeLabel === '昼' ? '12' : '23');
+    const tb = b.time || (b.timeLabel === '朝' ? '00' : b.timeLabel === '昼' ? '12' : '23');
+    return ta.localeCompare(tb);
+  });
+
+  // Header
+  const hp = document.createElement('div');
+  hp.className = 'header-pill';
+  hp.innerHTML = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日　<span style="color:${dayColor(d)}">｜　${dayLabel(d)}曜日</span>`;
+  app.appendChild(hp);
+
+  // Top summary (undone tasks preview)
+  const undonePrev = tasks.filter(t=>!t.done).slice(0,3);
+  if (undonePrev.length > 0) {
+    const sum = document.createElement('div');
+    sum.className = 'top-summary';
+    undonePrev.forEach(t => {
+      const row = document.createElement('div');
+      row.className = 'summary-row';
+      row.innerHTML = `${iconBadgeHTML(t.icon||'A')} <span>${t.time ? t.time+'　' : (t.timeLabel ? t.timeLabel+'　' : '')}${t.title}</span>`;
+      sum.appendChild(row);
+    });
+    app.appendChild(sum);
+  }
+
+  // Scroll area
+  const scroll = document.createElement('div');
+  scroll.className = 'scroll-area';
+
+  if (state.syncing) {
+    scroll.innerHTML = `<div class="loading-row"><div class="spinner"></div><span>Googleカレンダーと同期中...</span></div>`;
+  } else if (tasks.length === 0) {
+    scroll.innerHTML = `<div class="empty-day">この日の予定はありません<br><span style="font-size:12px">＋ボタンで追加できます</span></div>`;
+  } else {
+    tasks.forEach((task, i) => {
+      scroll.appendChild(makeTaskRow(task, i+1, key));
+    });
+  }
+  app.appendChild(scroll);
+
+  // Footer
+  app.appendChild(makeFooter('day', d));
+}
+
+function makeTaskRow(task, idx, key) {
+  const row = document.createElement('div');
+  row.className = 'task-row' + (task.done ? ' done' : '');
+
+  const timeDisp = task.time || task.timeLabel || '';
+  const isGcal = task.gcalId;
+
+  row.innerHTML = `
+    ${iconBadgeHTML(task.icon||'A')}
+    <div class="task-body">
+      <div class="task-title-row">
+        ${timeDisp ? `<span class="task-time">${timeDisp}</span>` : ''}
+        <span class="task-title">${task.title}</span>
+        ${isGcal ? `<span class="gcal-indicator">●</span>` : ''}
+      </div>
+      ${task.tag ? `<div class="task-tag">${task.tag}</div>` : ''}
+    </div>
+    <span class="task-num">${task.done ? '✓' : idx}</span>
+  `;
+
+  // Long press = toggle done
+  let pressTimer;
+  const startPress = () => {
+    row.classList.add('pressing');
+    pressTimer = setTimeout(() => {
+      row.classList.remove('pressing');
+      toggleDone(key, task.id);
+    }, 550);
+  };
+  const endPress = (e) => {
+    clearTimeout(pressTimer);
+    row.classList.remove('pressing');
+  };
+  row.addEventListener('mousedown', startPress);
+  row.addEventListener('touchstart', startPress, {passive:true});
+  row.addEventListener('mouseup', endPress);
+  row.addEventListener('touchend', endPress);
+  row.addEventListener('mouseleave', endPress);
+
+  // Tap = open edit
+  row.addEventListener('click', (e) => {
+    if (!row.classList.contains('pressing')) {
+      state.modal = { ...task, _key: key };
+      render();
+    }
+  });
+
+  return row;
+}
+
+function iconBadgeHTML(type) {
+  const bg = ICON_COLORS[type] || ICON_COLORS.A;
+  const label = type === 'Y' ? '¥' : type === 'S' ? '♡' : type === 'G' ? 'G' : 'A';
+  return `<span class="icon-badge" style="background:${bg}">${label}</span>`;
+}
+
+function toggleDone(key, id) {
+  if (!state.tasks[key]) return;
+  const task = state.tasks[key].find(t => t.id === id);
+  if (!task) return;
+  task.done = !task.done;
+  saveLocal();
+  // Google Tasks に反映
+  if (task.gtaskId && state.gcalToken) {
+    updateGoogleTask(task);
+  }
+  // Google Calendar に反映
+  if (task.gcalId && state.gcalToken) {
+    updateGoogleCalendarEvent(task);
+  }
+  render();
+  showToast(task.done ? '✓ 完了しました' : '未完了に戻しました');
+}
+
+// ── MONTHLY VIEW ───────────────────────────────────────
+function renderMonthly(app) {
+  const d = state.current;
+  const y = d.getFullYear(), m = d.getMonth();
+
+  const hp = document.createElement('div');
+  hp.className = 'header-pill';
+  hp.textContent = `${y}年${m+1}月`;
+  app.appendChild(hp);
+
+  // DOW header
+  const dh = document.createElement('div');
+  dh.className = 'dow-header';
+  ['日','月','火','水','木','金','土'].forEach((dow, i) => {
+    const c = document.createElement('div');
+    c.className = 'dow-cell';
+    c.style.color = i===0 ? '#e83b00' : i===6 ? '#0072b2' : '';
+    c.textContent = dow;
+    dh.appendChild(c);
+  });
+  app.appendChild(dh);
+
+  // Grid
+  const grid = document.createElement('div');
+  grid.className = 'month-grid';
+
+  const firstDow = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  let cells = Array(firstDow).fill(null);
+  for (let day = 1; day <= daysInMonth; day++) cells.push(day);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  for (let r = 0; r < cells.length/7; r++) {
+    const week = document.createElement('div');
+    week.className = 'month-week';
+    for (let c = 0; c < 7; c++) {
+      const day = cells[r*7+c];
+      const cell = document.createElement('div');
+      cell.className = 'month-day';
+      if (!day) { week.appendChild(cell); continue; }
+
+      const dDate = new Date(y, m, day);
+      const dk = dateKey(dDate);
+      const dayTasks = state.tasks[dk] || [];
+      const dc = dayColor(dDate);
+      const sel = dateKey(state.current) === dk;
+      const tod = isToday(dDate);
+
+      if (sel) cell.classList.add('selected');
+      if (tod) cell.classList.add('today-marker');
+
+      cell.innerHTML = `
+        <div class="mday-num" style="color:${dc}">${day}</div>
+        <div class="mday-tasks">
+          ${dayTasks.slice(0,3).map(t=>`<div class="mday-task-line">${t.time?t.time+' ':''}${t.title}</div>`).join('')}
+        </div>
+      `;
+
+      cell.addEventListener('click', () => {
+        state.current = dDate;
+        state.view = 'day';
+        render();
+      });
+      week.appendChild(cell);
+    }
+    grid.appendChild(week);
+  }
+  app.appendChild(grid);
+  app.appendChild(makeFooter('monthly', d));
+}
+
+// ── FOOTER ─────────────────────────────────────────────
+function makeFooter(viewType, d) {
+  const footer = document.createElement('div');
+  footer.className = 'footer';
+
+  // Calendar icon
+  const calBtn = document.createElement('button');
+  calBtn.className = 'cal-icon-btn';
+  calBtn.innerHTML = `<div class="cal-top"><span>CAL</span></div><span class="cal-num">${d.getDate()}</span>`;
+  calBtn.addEventListener('click', () => {
+    state.view = state.view === 'monthly' ? 'day' : 'monthly';
+    render();
+  });
+
+  // Nav group
+  const nav = document.createElement('div');
+  nav.className = 'nav-group';
+
+  const prev = document.createElement('button');
+  prev.className = 'nav-arr';
+  prev.innerHTML = '‹';
+  prev.addEventListener('click', () => {
+    if (viewType === 'day') state.current = addDays(state.current, -1);
+    else { const nd=new Date(d); nd.setMonth(nd.getMonth()-1); state.current=nd; }
+    render();
+  });
+
+  const center = document.createElement('button');
+  if (viewType === 'day') {
+    center.className = 'today-btn';
+    center.textContent = '今日';
+    center.addEventListener('click', () => { state.current = new Date(state.today); render(); });
+  } else {
+    center.className = 'month-btn';
+    center.textContent = `${d.getMonth()+1}月`;
+  }
+
+  const next = document.createElement('button');
+  next.className = 'nav-arr';
+  next.innerHTML = '›';
+  next.addEventListener('click', () => {
+    if (viewType === 'day') state.current = addDays(state.current, 1);
+    else { const nd=new Date(d); nd.setMonth(nd.getMonth()+1); state.current=nd; }
+    render();
+  });
+
+  nav.append(prev, center, next);
+
+  // Plus btn
+  const plus = document.createElement('button');
+  plus.className = 'plus-btn';
+  plus.innerHTML = '＋';
+  plus.addEventListener('click', () => { state.modal = 'add'; render(); });
+
+  footer.append(calBtn, nav, plus);
+  return footer;
+}
+
+// ── MODAL ──────────────────────────────────────────────
+function renderModal(app) {
+  const isEdit = typeof state.modal === 'object' && state.modal !== null;
+  const task = isEdit ? state.modal : null;
+  const key = task?._key || dateKey(state.current);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.addEventListener('click', e => { if(e.target===overlay){ state.modal=null; render(); }});
+
+  const sheet = document.createElement('div');
+  sheet.className = 'modal-sheet';
+
+  // ── Build form ──
+  let titleVal = task?.title || '';
+  let selectedTags = task?.tag ? [task.tag] : [];
+  let iconVal = task?.icon || 'A';
+  let startDateVal = formatDateForInput(state.current);
+  let startTimeVal = task?.time || '';
+  let endTimeVal = '';
+  let notesVal = task?.notes || '';
+
+  sheet.innerHTML = `
+    <div class="modal-close-row">
+      <button class="modal-close" id="closeModal">×</button>
+    </div>
+    <input id="taskTitle" class="modal-input" placeholder="タスクのタイトル" value="${escHtml(titleVal)}">
+
+    <div class="modal-section">
+      <div class="modal-section-title">タグ</div>
+      <div class="tag-grid" id="tagGrid">
+        ${TAGS.map(t => `<button class="tag-btn ${selectedTags.includes(t)?'active':''}" data-tag="${t}">${t}</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">アイコン / 種別</div>
+      <div style="display:flex;gap:10px">
+        ${['A','Y','S','G'].map(ic => `
+          <button class="tag-btn ${iconVal===ic?'active':''}" data-icon="${ic}" style="padding:8px 14px">
+            <span class="icon-badge" style="background:${ICON_COLORS[ic]};width:20px;height:20px;font-size:10px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;margin-right:4px">${ic==='Y'?'¥':ic==='S'?'♡':ic==='G'?'G':'A'}</span>
+            ${ic==='A'?'人物':ic==='Y'?'金融':ic==='S'?'交流':'Google'}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">時間</div>
+      <div class="time-row">
+        <span class="time-label">日付</span>
+        <div class="time-fields">
+          <div class="time-pill"><input id="startDate" type="date" value="${startDateVal}" style="width:120px"></div>
+        </div>
+      </div>
+      <div class="time-row" style="margin-top:8px">
+        <span class="time-label">開始</span>
+        <div class="time-fields">
+          <div class="time-pill"><input id="startTime" type="time" value="${startTimeVal}" placeholder="なし" style="width:70px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">メモ</div>
+      <textarea id="taskNotes" style="width:100%;background:#555;border-radius:8px;padding:10px;font-size:13px;color:#fff;resize:none;min-height:60px">${escHtml(notesVal)}</textarea>
+    </div>
+
+    <div class="modal-actions">
+      ${isEdit ? `<button class="btn-delete" id="deleteBtn">削除</button>` : ''}
+      <button class="btn-primary" id="saveBtn">${isEdit?'更新':'追加'}</button>
+    </div>
+
+    ${state.gcalToken ? `
+    <div style="margin-top:12px">
+      <div class="gcal-section">
+        <div class="gcal-row">
+          <span style="font-size:13px;color:#ccc">Googleカレンダーに追加</span>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="addToGcal" ${task?.gcalId?'checked disabled':''} style="width:18px;height:18px">
+            <span style="font-size:12px;color:#aaa">${task?.gcalId?'連携済み':'同期する'}</span>
+          </label>
+        </div>
+      </div>
+    </div>` : ''}
+  `;
+  overlay.appendChild(sheet);
+  app.appendChild(overlay);
+
+  // イベント設定
+  sheet.querySelector('#closeModal').onclick = () => { state.modal=null; render(); };
+
+  // Tag toggle
+  sheet.querySelectorAll('[data-tag]').forEach(btn => {
+    btn.onclick = () => {
+      const t = btn.dataset.tag;
+      selectedTags = selectedTags.includes(t) ? [] : [t];
+      sheet.querySelectorAll('[data-tag]').forEach(b => b.classList.toggle('active', selectedTags.includes(b.dataset.tag)));
+    };
+  });
+
+  // Icon toggle
+  sheet.querySelectorAll('[data-icon]').forEach(btn => {
+    btn.onclick = () => {
+      iconVal = btn.dataset.icon;
+      sheet.querySelectorAll('[data-icon]').forEach(b => b.classList.toggle('active', b.dataset.icon === iconVal));
+    };
+  });
+
+  // Save
+  sheet.querySelector('#saveBtn').onclick = async () => {
+    const title = sheet.querySelector('#taskTitle').value.trim();
+    if (!title) { sheet.querySelector('#taskTitle').style.borderBottom='2px solid #e83b00'; return; }
+    const startTime = sheet.querySelector('#startTime').value;
+    const startDateStr = sheet.querySelector('#startDate').value;
+    const notes = sheet.querySelector('#taskNotes').value;
+    const addToGcal = sheet.querySelector('#addToGcal')?.checked || false;
+
+    // Parse target date from input
+    const targetDate = startDateStr ? new Date(startDateStr+'T00:00:00') : state.current;
+    const targetKey = dateKey(targetDate);
+
+    const taskObj = {
+      id: isEdit ? task.id : Date.now(),
+      title, tag: selectedTags[0]||null, icon: iconVal,
+      time: startTime||null, timeLabel: null,
+      done: isEdit ? task.done : false,
+      notes,
+      gcalId: task?.gcalId || null,
+      gtaskId: task?.gtaskId || null,
+      gcalColor: task?.gcalColor || null,
+    };
+
+    if (!state.tasks[targetKey]) state.tasks[targetKey] = [];
+
+    if (isEdit) {
+      // Remove from old key if date changed
+      if (task._key !== targetKey) {
+        state.tasks[task._key] = (state.tasks[task._key]||[]).filter(t=>t.id!==task.id);
+      }
+      const idx = state.tasks[targetKey].findIndex(t=>t.id===taskObj.id);
+      if (idx >= 0) state.tasks[targetKey][idx] = taskObj;
+      else state.tasks[targetKey].push(taskObj);
+    } else {
+      state.tasks[targetKey].push(taskObj);
+    }
+
+    saveLocal();
+    state.modal = null;
+    state.current = targetDate;
+
+    // Google連携
+    if (addToGcal && state.gcalToken && !taskObj.gcalId) {
+      await createGoogleCalendarEvent(taskObj, targetKey);
+    } else if (isEdit && taskObj.gcalId && state.gcalToken) {
+      await updateGoogleCalendarEvent(taskObj);
+    }
+
+    render();
+    showToast(isEdit ? '更新しました' : '追加しました');
+  };
+
+  // Delete
+  const delBtn = sheet.querySelector('#deleteBtn');
+  if (delBtn) {
+    delBtn.onclick = async () => {
+      if (!confirm('このタスクを削除しますか？')) return;
+      state.tasks[task._key] = (state.tasks[task._key]||[]).filter(t=>t.id!==task.id);
+      // Google側も削除
+      if (task.gcalId && state.gcalToken) await deleteGoogleCalendarEvent(task.gcalId);
+      saveLocal();
+      state.modal = null;
+      render();
+      showToast('削除しました');
+    };
+  }
+}
+
+// ── SETTINGS MODAL ─────────────────────────────────────
+function renderSettings(app) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.addEventListener('click', e => { if(e.target===overlay){state.settingsModal=false;render();}});
+
+  const sheet = document.createElement('div');
+  sheet.className = 'modal-sheet';
+  sheet.innerHTML = `
+    <div class="modal-close-row">
+      <button class="modal-close" id="closeSettings">×</button>
+    </div>
+    <div style="font-size:18px;font-weight:500;color:#fff;margin-bottom:20px">設定 / Google連携</div>
+
+    <div class="gcal-section">
+      <div class="gcal-row">
+        <div>
+          <div style="font-size:14px;color:#fff;margin-bottom:4px">Googleカレンダー</div>
+          <div class="gcal-status" id="gcalStatus">${state.gcalToken ? `接続済み: ${state.gcalEmail||''}` : '未接続'}</div>
+        </div>
+        <button class="gcal-btn ${state.gcalToken?'connected':''}" id="gcalConnectBtn">
+          ${state.gcalToken ? '再接続' : 'Googleでログイン'}
+        </button>
+      </div>
+    </div>
+
+    ${state.gcalToken ? `
+    <div class="gcal-section">
+      <div style="font-size:14px;color:#fff;margin-bottom:10px">同期設定</div>
+      <button class="gcal-btn sync" id="syncNowBtn" style="width:100%;padding:12px;font-size:14px;margin-bottom:8px">
+        📅 今日 ± 7日を今すぐ同期
+      </button>
+      <button class="gcal-btn sync" id="syncMonthBtn" style="width:100%;padding:12px;font-size:14px">
+        📅 今月を全て同期
+      </button>
+      <div style="font-size:11px;color:#888;margin-top:8px">
+        最終同期: ${state.lastSynced ? new Date(state.lastSynced).toLocaleString('ja-JP') : 'なし'}
+      </div>
+    </div>
+
+    <div class="gcal-section">
+      <button class="btn-delete" id="disconnectBtn" style="width:100%;padding:12px;font-size:14px">
+        Googleとの接続を解除
+      </button>
+    </div>
+    ` : `
+    <div style="font-size:13px;color:#aaa;line-height:2;padding:0 4px">
+      Googleでログインすると：<br>
+      ✓ Googleカレンダーの予定を取り込み<br>
+      ✓ Googleタスクを取り込み<br>
+      ✓ アプリから追加した予定をGoogleにも反映<br>
+      ✓ 完了/未完了もリアルタイム同期
+    </div>
+    `}
+  `;
+  overlay.appendChild(sheet);
+  app.appendChild(overlay);
+
+  sheet.querySelector('#closeSettings').onclick = () => { state.settingsModal=false; render(); };
+  sheet.querySelector('#gcalConnectBtn').onclick = () => startGoogleAuth();
+
+  if (state.gcalToken) {
+    sheet.querySelector('#syncNowBtn').onclick = () => { state.settingsModal=false; syncGoogleCalendar('week'); };
+    sheet.querySelector('#syncMonthBtn').onclick = () => { state.settingsModal=false; syncGoogleCalendar('month'); };
+    sheet.querySelector('#disconnectBtn').onclick = () => {
+      if(confirm('Google連携を解除しますか？ ローカルのタスクは残ります。')) {
+        state.gcalToken=null; state.gcalEmail=null;
+        localStorage.removeItem('gcal_token'); localStorage.removeItem('gcal_email');
+        state.settingsModal=false; render();
+        showToast('接続を解除しました');
+      }
+    };
+  }
+}
+
+// ── TOAST ──────────────────────────────────────────────
+function showToast(msg) {
+  state.toast = msg;
+  render();
+  setTimeout(() => { state.toast = null; render(); }, 2500);
+}
+function renderToast(app) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = state.toast;
+  app.appendChild(t);
+}
+
+// ══════════════════════════════════════════════════════
+//  GOOGLE AUTH
+// ══════════════════════════════════════════════════════
+function startGoogleAuth() {
+  if (GOOGLE_CLIENT_ID === 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com') {
+    alert('先にGOOGLE_CLIENT_IDを設定してください。\n\n手順書を確認してください。');
+    return;
+  }
+  const params = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: window.location.origin + window.location.pathname,
+    response_type: 'token',
+    scope: SCOPES,
+    include_granted_scopes: 'true',
+  });
+  window.location.href = 'https://accounts.google.com/o/oauth2/auth?' + params.toString();
+}
+
+function handleAuthCallback() {
+  const hash = window.location.hash;
+  if (!hash) return;
+  const params = new URLSearchParams(hash.substring(1));
+  const token = params.get('access_token');
+  if (!token) return;
+  state.gcalToken = token;
+  localStorage.setItem('gcal_token', token);
+  window.history.replaceState({}, '', window.location.pathname);
+  // Get user email
+  fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+    headers: { Authorization: `Bearer ${token}` }
+  }).then(r=>r.json()).then(info => {
+    state.gcalEmail = info.email;
+    if (info.email) localStorage.setItem('gcal_email', info.email);
+    showToast(`✓ ${info.email} でログインしました`);
+    syncGoogleCalendar('week');
+  }).catch(()=>{
+    showToast('ログインしました');
+    syncGoogleCalendar('week');
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  GOOGLE CALENDAR API
+// ══════════════════════════════════════════════════════
+async function gcalFetch(url, options={}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Authorization': `Bearer ${state.gcalToken}`,
+      'Content-Type': 'application/json',
+      ...(options.headers||{})
+    }
+  });
+  if (res.status === 401) {
+    // Token expired
+    state.gcalToken = null;
+    localStorage.removeItem('gcal_token');
+    showToast('Googleの認証が切れました。再ログインしてください。');
+    render();
+    return null;
+  }
+  if (!res.ok) return null;
+  return res.json();
+}
+
+async function syncGoogleCalendar(range='week') {
+  if (!state.gcalToken) return;
+  state.syncing = true;
+  render();
+
+  const now = new Date();
+  let timeMin, timeMax;
+  if (range === 'week') {
+    timeMin = addDays(now, -7);
+    timeMax = addDays(now, 14);
+  } else {
+    timeMin = new Date(now.getFullYear(), now.getMonth(), 1);
+    timeMax = new Date(now.getFullYear(), now.getMonth()+1, 0);
+  }
+
+  try {
+    // ── Google Calendar Events ──
+    const calRes = await gcalFetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
+      new URLSearchParams({
+        timeMin: timeMin.toISOString(),
+        timeMax: timeMax.toISOString(),
+        singleEvents: 'true',
+        orderBy: 'startTime',
+        maxResults: '500'
+      })
+    );
+
+    if (calRes?.items) {
+      calRes.items.forEach(event => {
+        const startStr = event.start?.dateTime || event.start?.date;
+        if (!startStr) return;
+        const evDate = new Date(startStr.includes('T') ? startStr : startStr+'T00:00:00');
+        const key = dateKey(evDate);
+        if (!state.tasks[key]) state.tasks[key] = [];
+
+        const existing = state.tasks[key].find(t => t.gcalId === event.id);
+        if (existing) {
+          // Update
+          existing.title = event.summary || '(無題)';
+          existing.time = startStr.includes('T') ? new Date(startStr).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}) : null;
+          existing.notes = event.description || '';
+          existing.gcalColor = event.colorId ? gcalColorHex(event.colorId) : null;
+        } else {
+          state.tasks[key].push({
+            id: Date.now() + Math.random(),
+            title: event.summary || '(無題)',
+            time: startStr.includes('T') ? new Date(startStr).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}) : null,
+            timeLabel: null, tag: null, icon: 'G', done: false,
+            notes: event.description || '',
+            gcalId: event.id,
+            gcalColor: event.colorId ? gcalColorHex(event.colorId) : null,
+          });
+        }
+      });
+    }
+
+    // ── Google Tasks ──
+    const taskListsRes = await gcalFetch('https://tasks.googleapis.com/tasks/v1/users/@me/lists?maxResults=10');
+    if (taskListsRes?.items) {
+      for (const list of taskListsRes.items.slice(0,3)) {
+        const tasksRes = await gcalFetch(
+          `https://tasks.googleapis.com/tasks/v1/lists/${list.id}/tasks?` +
+          new URLSearchParams({ showCompleted: 'false', maxResults: '100' })
+        );
+        if (tasksRes?.items) {
+          tasksRes.items.forEach(gt => {
+            const dueStr = gt.due;
+            const targetDate = dueStr ? new Date(dueStr) : new Date();
+            const key = dateKey(targetDate);
+            if (!state.tasks[key]) state.tasks[key] = [];
+            const existing = state.tasks[key].find(t => t.gtaskId === gt.id);
+            if (!existing) {
+              state.tasks[key].push({
+                id: Date.now() + Math.random(),
+                title: gt.title || '(無題)',
+                time: null, timeLabel: null, tag: '作業', icon: 'A',
+                done: gt.status === 'completed',
+                notes: gt.notes || '',
+                gtaskId: gt.id,
+                gtaskListId: list.id,
+              });
+            }
+          });
+        }
+      }
+    }
+
+    saveLocal();
+    state.lastSynced = Date.now();
+    localStorage.setItem('lastSynced', state.lastSynced);
+
+  } catch(e) {
+    console.error('Sync error:', e);
+  }
+
+  state.syncing = false;
+  render();
+  showToast('✓ Googleと同期しました');
+}
+
+async function createGoogleCalendarEvent(task, key) {
+  const d = parseKey(key);
+  const start = task.time
+    ? { dateTime: `${key}T${task.time}:00`, timeZone: 'Asia/Tokyo' }
+    : { date: key };
+  const end = task.time
+    ? { dateTime: `${key}T${endTimeFromStart(task.time)}:00`, timeZone: 'Asia/Tokyo' }
+    : { date: key };
+
+  const body = {
+    summary: task.title,
+    description: task.notes || '',
+    start, end,
+  };
+
+  const res = await gcalFetch(
+    'https://www.googleapis.com/calendar/v3/calendars/primary/events',
+    { method: 'POST', body: JSON.stringify(body) }
+  );
+  if (res?.id) {
+    const t = state.tasks[key]?.find(t=>t.id===task.id);
+    if (t) { t.gcalId = res.id; saveLocal(); }
+  }
+}
+
+async function updateGoogleCalendarEvent(task) {
+  if (!task.gcalId) return;
+  const key = Object.keys(state.tasks).find(k => state.tasks[k].some(t=>t.id===task.id));
+  if (!key) return;
+  const start = task.time
+    ? { dateTime: `${key}T${task.time}:00`, timeZone: 'Asia/Tokyo' }
+    : { date: key };
+  const end = task.time
+    ? { dateTime: `${key}T${endTimeFromStart(task.time)}:00`, timeZone: 'Asia/Tokyo' }
+    : { date: key };
+  await gcalFetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${task.gcalId}`,
+    { method: 'PATCH', body: JSON.stringify({ summary: task.title, description: task.notes||'', start, end }) }
+  );
+}
+
+async function deleteGoogleCalendarEvent(gcalId) {
+  await gcalFetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${gcalId}`,
+    { method: 'DELETE' }
+  );
+}
+
+async function updateGoogleTask(task) {
+  if (!task.gtaskId || !task.gtaskListId) return;
+  await gcalFetch(
+    `https://tasks.googleapis.com/tasks/v1/lists/${task.gtaskListId}/tasks/${task.gtaskId}`,
+    { method: 'PATCH', body: JSON.stringify({ status: task.done ? 'completed' : 'needsAction' }) }
+  );
+}
+
+// ── Utils ──────────────────────────────────────────────
+function endTimeFromStart(time) {
+  if (!time) return '00:00';
+  const [h,m] = time.split(':').map(Number);
+  const end = new Date(2000,0,1,h+1,m);
+  return `${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}`;
+}
+function gcalColorHex(id) {
+  const map = {'1':'#d50000','2':'#e67c73','3':'#f6bf26','4':'#33b679','5':'#0b8043','6':'#039be5','7':'#3f51b5','8':'#7986cb','9':'#8e24aa','10':'#616161','11':'#ef6c00'};
+  return map[id]||null;
+}
+function formatDateForInput(d) {
+  return dateKey(d);
+}
+function escHtml(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Swipe Navigation ────────────────────────────────────
+function setupSwipe() {
+  let startX, startY;
+  document.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, {passive:true});
+  document.addEventListener('touchend', e => {
+    if (state.modal || state.settingsModal) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)*1.5) {
+      if (state.view === 'day') {
+        state.current = addDays(state.current, dx < 0 ? 1 : -1);
+        render();
+      }
+    }
+  }, {passive:true});
+}
+
+// ── Long-press header for settings ─────────────────────
+function setupLongPressSettings() {
+  document.addEventListener('touchstart', e => {
+    if (e.target.closest('.header-pill')) {
+      const t = setTimeout(() => { state.settingsModal=true; render(); }, 800);
+      document.addEventListener('touchend', () => clearTimeout(t), {once:true});
+    }
+  });
+}
+
+// ── INIT ───────────────────────────────────────────────
+loadLocal();
+state.lastSynced = localStorage.getItem('lastSynced');
+handleAuthCallback();
+render();
+setupSwipe();
+setupLongPressSettings();
+
+// Auto-sync on load if token exists
+if (state.gcalToken) {
+  setTimeout(() => syncGoogleCalendar('week'), 1000);
+}
+</script>
+</body>
+</html>
