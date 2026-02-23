@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -206,7 +207,7 @@ input, textarea, select { font-family: inherit; outline: none; border: none; }
 // ══════════════════════════════════════════════════════════
 //  ★ ここにGoogle Cloud ConsoleのクライアントIDを貼る ★
 // ══════════════════════════════════════════════════════════
-const GOOGLE_CLIENT_ID = '731358210353-a1nvk0b3hn403cqvvbfak90po8vt4hrg.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com';
 // ══════════════════════════════════════════════════════════
 
 const SCOPES = [
@@ -350,6 +351,7 @@ function makeTaskRow(task, idx, key) {
         ${timeDisp ? `<span class="task-time">${timeDisp}</span>` : ''}
         <span class="task-title">${task.title}</span>
         ${isGcal ? `<span class="gcal-indicator">●</span>` : ''}
+        ${task._rolledFrom ? `<span style="font-size:10px;background:#e8a020;color:#fff;border-radius:4px;padding:1px 5px;margin-left:2px">繰越</span>` : ''}
       </div>
       ${task.tag ? `<div class="task-tag">${task.tag}</div>` : ''}
     </div>
@@ -1075,9 +1077,40 @@ function setupLongPressSettings() {
   });
 }
 
+// ── ROLLOVER: 未完了タスクを翌日に繰り越す ────────────────
+function rolloverUndoneTasks() {
+  const todayKey = dateKey(new Date());
+  const lastRun = localStorage.getItem('lastRolloverDate');
+  if (lastRun === todayKey) return; // 今日すでに実行済み
+
+  const yesterday = addDays(new Date(), -1);
+  const yesterdayKey = dateKey(yesterday);
+  const yesterdayTasks = state.tasks[yesterdayKey] || [];
+  const undone = yesterdayTasks.filter(t => !t.done && !t.gcalId); // ローカルタスクのみ繰り越し
+
+  if (undone.length > 0) {
+    if (!state.tasks[todayKey]) state.tasks[todayKey] = [];
+    const existingIds = new Set(state.tasks[todayKey].map(t => t._rolledFrom || t.id));
+    undone.forEach(t => {
+      if (!existingIds.has(t.id)) {
+        state.tasks[todayKey].push({
+          ...t,
+          id: Date.now() + Math.random(),
+          done: false,
+          _rolledFrom: t.id,
+          _rolledDate: yesterdayKey,
+        });
+      }
+    });
+    saveLocal();
+  }
+  localStorage.setItem('lastRolloverDate', todayKey);
+}
+
 // ── INIT ───────────────────────────────────────────────
 loadLocal();
 state.lastSynced = localStorage.getItem('lastSynced');
+rolloverUndoneTasks();
 handleAuthCallback();
 render();
 setupSwipe();
