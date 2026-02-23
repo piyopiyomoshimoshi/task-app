@@ -1083,27 +1083,34 @@ function rolloverUndoneTasks() {
   const lastRun = localStorage.getItem('lastRolloverDate');
   if (lastRun === todayKey) return; // 今日すでに実行済み
 
-  const yesterday = addDays(new Date(), -1);
-  const yesterdayKey = dateKey(yesterday);
-  const yesterdayTasks = state.tasks[yesterdayKey] || [];
-  const undone = yesterdayTasks.filter(t => !t.done && !t.gcalId); // ローカルタスクのみ繰り越し
+  // 過去7日分をチェックして未完了タスクを繰り越す
+  for (let i = 1; i <= 7; i++) {
+    const pastDay = addDays(new Date(), -i);
+    const pastKey = dateKey(pastDay);
+    const pastTasks = state.tasks[pastKey] || [];
+    // Googleカレンダーイベント(gcalId)以外の未完了タスクを繰り越す
+    const undone = pastTasks.filter(t => !t.done && !t.gcalId);
 
-  if (undone.length > 0) {
-    if (!state.tasks[todayKey]) state.tasks[todayKey] = [];
-    const existingIds = new Set(state.tasks[todayKey].map(t => t._rolledFrom || t.id));
-    undone.forEach(t => {
-      if (!existingIds.has(t.id)) {
-        state.tasks[todayKey].push({
-          ...t,
-          id: Date.now() + Math.random(),
-          done: false,
-          _rolledFrom: t.id,
-          _rolledDate: yesterdayKey,
-        });
-      }
-    });
-    saveLocal();
+    if (undone.length > 0) {
+      if (!state.tasks[todayKey]) state.tasks[todayKey] = [];
+      undone.forEach(t => {
+        // すでに繰り越し済みでないか確認
+        const alreadyRolled = state.tasks[todayKey].some(
+          existing => existing._rolledFrom === t.id || existing.id === t.id
+        );
+        if (!alreadyRolled) {
+          state.tasks[todayKey].push({
+            ...t,
+            id: Date.now() + Math.random(),
+            done: false,
+            _rolledFrom: t.id,
+            _rolledDate: pastKey,
+          });
+        }
+      });
+    }
   }
+  saveLocal();
   localStorage.setItem('lastRolloverDate', todayKey);
 }
 
